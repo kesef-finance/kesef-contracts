@@ -4,26 +4,29 @@ import '@openzeppelin/contracts/utils/math/SafeMath.sol';
 import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
 import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
-import '../TransferHelper.sol';
-import '../Token.sol';
+import './TransferHelper.sol';
+import './Token.sol';
+
 
 contract ETHBridge is Ownable {
     using SafeMath for uint;
 
     address public signer;
-    uint256 public defaultPortFee;
 
     mapping(address => uint256) public portFee;
     mapping(string => bool) public executed;
     mapping(address => address) public ercToBep;
     mapping(address => address) public bepToErc;
 
+    event Data(uint chain, address bridge, address token, uint amount, address sender ,string txHash);
+    event Loda(address sig, address signer);
+
     event PortTo(address indexed ercToken, address indexed bepToken, address indexed from, uint256 amount);
     event PortBack(address indexed bepToken, address indexed ercToken, address indexed from, uint256 amount, string _portTxHash);
 
-    constructor(address _signer, uint256 _defaultPortFee) public {
+    constructor(address _signer) public {
+        require(_signer != address(0x0));
         signer = _signer;
-        defaultPortFee = _defaultPortFee;
     }
 
     function withdrawFee(address _token, address _to, uint256 _amount) onlyOwner external {
@@ -44,6 +47,7 @@ contract ETHBridge is Ownable {
         emit PortTo(_ercToken, bepToken, msg.sender, _amount);
     }
 
+
     // signature for authorization of mint
     function portBack(bytes calldata _signature, string memory _portTxHash, address _bepToken, uint _amount) external {
         require(!executed[_portTxHash], "already ported back");
@@ -54,13 +58,14 @@ contract ETHBridge is Ownable {
         assembly {
             chainId := chainid()
         }
+
         bytes32 message = keccak256(abi.encodePacked(chainId, address(this), _bepToken, _amount, msg.sender, _portTxHash));
         bytes32 signature = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", message));
-
+       
         require(ECDSA.recover(signature, _signature) == signer, "invalid signature");
 
-        Token(ercToken).mint(msg.sender, _amount);
         executed[_portTxHash] = true;
+        Token(ercToken).mint(msg.sender, _amount);
         emit PortBack(_bepToken, ercToken, msg.sender, _amount, _portTxHash);
     }
 
