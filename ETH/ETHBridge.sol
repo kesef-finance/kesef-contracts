@@ -43,6 +43,17 @@ contract ETHBridge is Ownable {
         require(_amount > 0, "amount must be greater than 0");        
         require(portFee[bepToken] == msg.value, "invalid port fee");
 
+        Token(_ercToken).burnFrom(msg.sender, _amount);
+        emit PortTo(_ercToken, bepToken, msg.sender, _amount);
+    }
+
+
+    function portToLegacy(address _ercToken, uint256 _amount) external payable {
+        address bepToken = ercToBep[_ercToken]; // ensure we support swap
+        require(bepToken != address(0), "invalid token");
+        require(_amount > 0, "amount must be greater than 0");        
+        require(portFee[bepToken] == msg.value, "invalid port fee");
+        
         Token(_ercToken).burn(msg.sender, _amount);
         emit PortTo(_ercToken, bepToken, msg.sender, _amount);
     }
